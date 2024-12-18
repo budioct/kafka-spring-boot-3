@@ -1,0 +1,289 @@
+Pertama ubah Directory file penyimpnana Kafka
+ubah pengaturan directory di file: config/kraft/server.properties
+
+# ----SEMUA DATA KAFKA ITU AKAN DI SIMPAN DI FOLDER PENGATURAN DIBAWAH----
+# /tmp/kraft-combined-logs, folder data tempat simpan default hanya bisa di lihat di linux dan macOS
+# log.dirs=/tmp/kraft-combined-logs
+
+# kita costum tempat penyimpananyam kita buat foler ./data di dalam sub folder ./Kafka/data
+log.dirs=data
+
+Format data (HANYA SEKALI SAJA) Directory yang telah kita set tadi dengan file yang ada di ./bin/windows/kafka-storage.bat
+command: ./bin/windows/kafka-storage.bat random-uuid atau bin\windows\kafka-storage.bat random-uuid         ===> nanti akan GENERATE NEW ID untuk mem-format Directory File Peyimpanan
+❯ ./bin/windows/kafka-storage.bat random-uuid
+hl5cPodOROCbdMbKgqHnpw
+
+command: ./bin/windows/kafka-storage.bat --cluster-id GENERATE NEW ID --config config/kraft/server.properties       ====> nanti akan format data Directory file penyimpnana
+❯ ./bin/windows/kafka-storage.bat format --cluster-id hl5cPodOROCbdMbKgqHnpw --config config/kraft/server.properties
+Formatting metadata directory data with metadata.version 3.9-IV0.
+
+jika berhasil di folder ./kafka_server/data ada 2 file yaitu:
+- bootstrap.checkpoint
+- meta.properties (paling penting)
+
+jika ini sudah selesai, baru kita bisa menjalankan KAFKA NYA
+
+-------------------
+runing kafka
+-------------------
+menjalankan file bin/windows/kafka-server-start.bat dan di sertai dengan file config config/kraft/server.properties
+command: bin/windows/kafka-server-start.bat config/kraft/server.properties
+❯ ./bin/windows/kafka-server-start.bat config/kraft/server.properties
+[2024-12-18 12:24:00,946] INFO Registered kafka:type=kafka.Log4jController MBean (kafka.utils.Log4jControllerRegistration$)
+[2024-12-18 12:24:01,230] INFO Setting -D jdk.tls.rejectClientInitiatedRenegotiation=true to disable client-initiated TLS renegotiation (org.apache.zookeeper.common.X509Util)
+[2024-12-18 12:24:01,447] INFO [ControllerServer id=1] Starting controller (kafka.server.ControllerServer)
+
+
+-------------------
+Topic
+-------------------
+mengirim data ke Topic (seperti table di db), Topic tersebut ada di dalam kafka nya
+idealnya untuk satu jenis Topic untuk satu jenis DATA (jangan di gabung gabung)
+Topic ini di simpan dalam Log, yaitu appnd-only (hanya bertambah), data yang masuk akan di simpan paling belakang. tidak ada proses pengurutan atau indexing
+
+untuk mengetahui port yang di gunakan atau mau merubahnya ada di ./config/kraft/server.properties
+listeners=PLAINTEXT://:9092,CONTROLLER://:9093
+
+Sebelum membuat Topic jalankan dulu Kafka Broker
+❯ ./bin/windows/kafka-server-start.bat config/kraft/server.properties
+[2024-12-18 12:24:00,946] INFO Registered kafka:type=kafka.Log4jController MBean (kafka.utils.Log4jControllerRegistration$)
+[2024-12-18 12:24:01,230] INFO Setting -D jdk.tls.rejectClientInitiatedRenegotiation=true to disable client-initiated TLS renegotiation (org.apache.zookeeper.common.X509Util)
+[2024-12-18 12:24:01,447] INFO [ControllerServer id=1] Starting controller (kafka.server.ControllerServer)
+
+Untuk membuat topic, kita bisa menggunakan file bin/kafka-topic.sh atau bin/windows/kafka-topics.bat
+command: bin/windows/kafka-topics.bat --bootstrap-server <connection-string>:<port> --create --topic <string-topic>
+❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --create --topic helloworld
+Created topic helloworld.
+❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --create --topic belajarkafka
+Created topic belajarkafka.
+
+Melihat Topic
+command: kafka-topics.sh --bootstrap-server <connection-string>:<port> --list
+❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --list
+belajarkafka
+helloworld
+
+Menghapus Topic
+command: kafka-topics.bat --bootstrap-server <connection-string>:<port> --delete --topic <string-topic>
+❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --delete --topic belajarkafka
+
+Melihat lagi hasil topic yang berhasil di hapus
+❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --list
+helloworld
+
+
+-------------------
+Message
+-------------------
+Data yang kita kirim ke topic di Kafka kita sebut Message
+Message merupakan data dengan struktur yang sudah ditentukan oleh Kafka
+Struktur Message
+ ● Topic adalah nama topic untuk menyimpan message
+ ● Partition adalah nomor partisi untuk menyimpan message
+ ● Header adalah informasi tambahan untuk message
+ ● Key adalah id untuk message, Key ini bukan seperti Primary Key di database, Key di Kafka boleh sama antar Message
+ ● Value adalah isi data untuk message
+
+
+-------------------
+Producer
+-------------------
+Producer adalah pihak yang mengirim Message ke Kafka
+Perlu diingat, setiap mengirim Message ke Kafka, maka akan disimpan di urutan paling akhir
+
+Untuk mengirim data ke kafka>topik menggunakan Console Producer
+command: ./bin/windows/kafka-console-producer.bat --bootstrap-server <host:port> --topic <string-topic>
+❯ ./bin/windows/kafka-console-producer.bat --bootstrap-server localhost:9092 --topic helloworld
+>hello budhi (ketik enter)
+>hello wahyu
+>hello joko
+
+
+-------------------
+Consumer
+-------------------
+Consumer adalah aplikasi yang membaca/menerima data dari Kafka
+Membaca data dari Kafka akan dilakukan secara berurutan dari nomor Message paling awal sampai paling akhir
+
+Untuk membaca data dari kafka>topik menggunakan Console Consumer
+// perlu di ingat default nya jika kita tidak mengunakan keyword --from-beginning consumer akan baca data yang paling baru
+command: ./bin/windows/kafka-console-consumer.bat --bootstrap-server <host:port> --topic <string-topic> --from-beginning
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --from-beginning
+hello budhi
+hello wahyu
+hello joko
+
+-------------------
+Publish Subscribe
+-------------------
+Ketika kita mengirim lagi data ke Topic yang sedang dibaca oleh Consumer, secara otomatis data akan dibaca oleh Consumer
+Sehingga kita tidak perlu menjalankan ulang aplikasi Consumer dari awal lagi
+
+// Producer yang mencoba mengirim data baru ke kafka>topik
+❯ ./bin/windows/kafka-console-producer.bat --bootstrap-server localhost:9092 --topic helloworld
+>hello budhi
+>hello oct
+>hello kiki
+
+// Consumer yang sedang baca dari kafka>topik, akan otomatis muncul data baru yang di dapat dari kafka>topik
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --from-beginning
+hello budhi
+hello wahyu
+hello joko
+hello budhi
+hello oct
+hello kiki
+
+-------------------
+Consumer Group
+-------------------
+Saat Consumer membaca data dari Topic, maka Consumer perlu menentukan Consumer Group yang digunakan
+Sebelumnya kita tidak menyebutkan Consumer Group yang kita gunakan, yang jika tidak disebutkan, secara otomatis akan dibuatkan baru oleh Kafka
+Namun pada kenyataannya saat membuat aplikasi, Consumer Group pasti akan selalu kita sebutkan
+Biasanya Consumer Group kebanyakan menggunakan nama aplikasi yang menjadi Consumer nya
+
+Tanpa Menyebutkan Consumer Group
+Jika kita tidak menyebutkan Consumer Group, secara otomatis akan dibuat Consumer Group baru
+Dan saat membaca data dari Topic, Kafka hanya akan memberikan data ke Consumer dengan Consumer Group secara unik, artinya tidak akan diberikan dua kali ke Consumer yang menggunakan Consumer Group yang sama
+Jika Consumer Group selalu berbeda-beda, maka secara otomatis data akan diterima berkali-kali
+Kita liat contohnya, misal aplikasi Payment akan menjadi Consumer dari Message Order, namun Payment tidak menggunakan Consumer Group
+
+Menggunakan Consumer Group
+Jika Consumer menggunakan Consumer Group, maka Consumer-Consumer yang menggunakan Consumer Group yang sama akan dianggap satu kesatuan.
+Oleh karena itu, data tidak akan dikirim berkali-kali ke semua Consumer, melainkan hanya sekali ke Consumer Group (Consumer akan dipilih dari Consumer Group yang sama).
+Dengan begitu, kita tidak akan menerima data berkali-kali.
+command: ./bin/windows/kafka-console-consumer.bat --bootstrap-server <host:port> --topic <string-topic> --group <string-group-consumer> --from-beginning
+
+// buka 1 tab untuk menjalankan producer untuk mengirim data ke kafka>topik
+❯ ./bin/windows/kafka-console-producer.bat --bootstrap-server localhost:9092 --topic helloworld
+
+// buka 2 tab untuk menjalankan consumer tidak mengunakan groups_consumer untuk mengambil data dari kafka>topik
+// note: data yang di ambil akan duplikasi
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --from-beginning
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --from-beginning
+
+// buka 2 tab untuk menjalankan groups_consumer untuk mengambil data dari kafka>topik
+// note: data yang di ambil akan masuk salah satu consumer tidak akan duplikasi
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --group football --from-beginning
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --group football --from-beginning
+
+
+-------------------
+Offset
+-------------------
+Ketika Tidak Ada Consumer
+● Sebelumnya kita sudah tahu bahwa data di Topic, disimpan secara berurutan, dimulai dari nomor 0 sampai seterusnya
+● Jika misal kita menghentikan semua Consumer, namun Producer tetap mengirim data, pertanyaannya, ketika nanti Consumer
+  berjalan lagi, dari mana Consumer akan membaca data? Apakah dari awal lagi?.
+  Atau mulai dari data terbaru saja? Atau dari data terakhir ketika Consumer dihentikan?
+
+Cara Menentukan Data yang Dibaca Consumer
+● Secara default, Consumer akan mulai membaca data baru yang masuk. Seandainya misal di Topic sudah ada 10 data,
+  lalu kita pertama kali menjalankan Consumer, maka Consumer akan mulai membaca data dari data ke 11 dan selanjutnya
+● Saat kita menggunakan --from-beginning, maka Consumer akan membaca data dari awal, yaitu dari data ke-1
+● Lantas bagaimana jika misal Consumer sudah selesai membaca sampai data ke-5, lalu Consumer dihentikan? Saat dijalankan ulang,
+  Consumer tidak akan membaca dari ke-1 lagi (awal), atau dari ke-11 (baru), melainkan dari terakhir Consumer dimatikan, yaitu ke-5,
+  yang artinya akan mulai membaca dari ke-6
+● Pertanyaannya bagaimana Consumer tahu bahwa terakhir data yang sudah dibaca adalah data ke-5?
+
+// offset
+● Kafka menyimpan informasi data terakhir yang dibaca dengan sebutan offset
+● Saat pertama kali Consumer berjalan, data Offset tidak ada, oleh karena itu kita harus menentukan mau di awal (--from-beginning)
+  atau mau dari data baru?
+● Namun ketika Consumer berjalan, lalu membaca data, maka Consumer akan menyimpan informasi Offset (data terakhir yang dibaca),
+  dengan begitu ketika aplikasi Consumer dihentikan, lalu dijalankan ulang, maka Consumer bisa mendapatkan informasi Offset terakhir,
+  dan melanjutkan membaca data dari Offset terakhir
+● Informasi Offset disimpan dengan informasi Consumer Group, yang artinya jika kita menjalankan Consumer dengan Consumer Group yang berbeda, maka informasi Offset otomatis akan hilang
+
+Melihat Informasi Offset
+command: ./bin/windows/kafka-consumer-groups.bat --bootstrap-server <host:port> --all-groups --all-topics --describe
+
+❯ ./bin/windows/kafka-consumer-groups.bat --bootstrap-server localhost:9092 --all-groups --all-topics --describe
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                           HOST            CLIENT-ID
+football        helloworld      0          32              32              0               console-consumer-4b332ced-b697-429c-81a7-9d7bbef2d15b /127.0.0.1      console-consumer
+
+
+-------------------
+Partition
+-------------------
+● Saat kita membuat Topic, Kafka akan menyimpan data Topic tersebut dalam Partition. Dan jumlah Partition secara default adalah 1
+● Partition di Kafka, hanya bisa dibaca oleh 1 Consumer, disinilah jawaban kenapa data yang kita kirim di awal selalu diterima oleh 1
+  Consumer, tidak pernah berpindah ke Consumer yang lain, sampai Consumer tersebut dihentikan, baru data akan berpindah ke Consumer lainnya
+● Kafka, bisa menyimpan data Topic dalam beberapa Partisi
+● Dengan begitu, kita bisa membuat beberapa Consumer bekerja, karena ada cukup Partisi yang bisa dibaca oleh Consumer
+● Kita akan coba simulasikan bagaimana Consumer bekerja ketika jumlah Partisi ada banyak
+
+Menambah Partition
+● Secara default, saat kita membuat Topic, maka jumlah Partition hanya 1
+● Kita bisa menentukan jumlah Partition saat membuat Topic, atau mengubah jumlah Partition di Topic yang sudah kita buat
+● Untuk membuat Topic dengan Partition :
+  ./bin/windows/kafka-topics.bat --bootstrap-server <connection-string>:<port> --create --topic <string-topic> --partitions <number>
+  ❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --create --topic helloworld --partitions 2
+
+● Untuk mengubah Topic yang sudah dibuat :
+  ./bin/windows/kafka-topics.bat --bootstrap-server <connection-string>:<port> --alter --topic <string-topic> --partitions <number>
+  ❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --alter --topic helloworld --partitions 2
+
+● Untuk melihat detail Topic yang sudah dibuat :
+  ./bin/windows/kafka-topics.bat --bootstrap-server <connection-string>:<port> --describe --topic <string-topic>
+  ❯ ./bin/windows/kafka-topics.bat --bootstrap-server localhost:9092 --describe --topic helloworld
+  Topic: helloworld       TopicId: 4rlNNEwgQCGNBCzHlIowBA PartitionCount: 2       ReplicationFactor: 1    Configs: segment.bytes=1073741824
+          Topic: helloworld       Partition: 0    Leader: 1       Replicas: 1     Isr: 1  Elr:    LastKnownElr:
+          Topic: helloworld       Partition: 1    Leader: 1       Replicas: 1     Isr: 1  Elr:    LastKnownElr:
+
+
+-------------------
+Routing
+-------------------
+Key Routing
+● Key di Kafka Message tidak seperti Primary Key di Database, Key di Kafka Message salah satunya digunakan untuk menentukan Partition yang dipilih
+● Saat menentukan Partition mana yang akan dipilih, Kafka akan menggunakan rumus :
+  hash(message.key) % total partition
+● Misal ketika kita mengirim Message dengan key “eko”, dengan jumlah Partition 2, maka, Partition
+  yang dipilih adalah:
+  hash(eko) % 2
+● Misal saja, hasil perhitungan hash(eko) = 8, artinya :
+  8 % 2 = 0
+● Artinya Message akan disimpan di Partition 0
+● Oleh karena itu, Key yang sama, pasti akan selalu masuk ke Partition yang sama
+
+Console Producer
+● Defaultnya, Console Producer akan menggunakan Key null (kosong) ketika mengirim data.
+Menabah key routing
+command: ./bin/windows/kafka-console-producer.bat --bootstrap-server <host:port> --topic <string-topic> --property "parse.key=true" --property "key.separator=:"
+❯ ./bin/windows/kafka-console-producer.bat --bootstrap-server localhost:9092 --topic helloworld --property "parse.key=true" --property "key.separator=:"
+
+Console Consumer
+● Untuk melihat Key yang ada di Message, di Console Consumer, kita bisa tambahkan perintah
+command: ./bin/windows/kafka-console-consumer.bat --bootstrap-server <host:port> --topic <string-topic> --group <string-group-consumer> --from-beginning --property “print.key=true"
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --group football --from-beginning --property “print.key=true"
+
+// producer
+❯ ./bin/windows/kafka-console-producer.bat --bootstrap-server localhost:9092 --topic helloworld --property "parse.key=true" --property "key.separator=:"
+>1:budhi
+>2:dimas
+>3:bagas
+>budhi:budhi
+>4:suep
+>5:ajas
+>6:akmal
+
+
+// consumer 1 topic helloworld group football
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --group football --from-beginning --property “print.key=true"
+1       budhi
+3       bagas
+2       dimas
+budhi   budhi
+4       suep
+
+// consumer 2 topic helloworld group football
+❯ ./bin/windows/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic helloworld --group football --from-beginning --property “print.key=true"
+5       ajas
+6       akmal
+
+// melihat offset data dari topic helloworld dan football di buat menjadi 2 partition
+❯ ./bin/windows/kafka-consumer-groups.bat --bootstrap-server localhost:9092 --all-groups --all-topics --describe
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                           HOST            CLIENT-ID
+football        helloworld      1          3               3               0               console-consumer-dd7f1a5c-c130-4f9e-bfc9-7b9344abf4aa /127.0.0.1      console-consumer
+football        helloworld      0          54              54              0               console-consumer-6de84508-74f2-4d96-8fac-18872dbf61f1 /127.0.0.1      console-consumer
