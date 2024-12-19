@@ -1,4 +1,4 @@
-package budhioct.dev.kafka;
+package budhioct.dev.kafka.app;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -13,7 +13,7 @@ import java.util.Properties;
 public class ConsumerApp {
 
     /**
-     * Menerima data dari Message Broker
+     * Menerima data dari Message Broker (Kafka.topics)
      */
 
     public static void main(String[] args) {
@@ -22,15 +22,15 @@ public class ConsumerApp {
         properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); // OFFSET
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName()); // TYPE KAFKA TO TYPE JAVA
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "java"); // GROUP-CONSUMER
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "liverpool"); // GROUP-CONSUMER
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties);
-        consumer.subscribe(List.of("helloworld")); // TOPIC
+        consumer.subscribe(List.of("orders")); // TOPIC
 
         while (true) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(1));
             for (ConsumerRecord<String, String> record : records) {
-                System.out.println("Received message: " + record.value());
+                System.out.println("Received message: " + record.key() + " : " + record.value());
             }
         }
 
