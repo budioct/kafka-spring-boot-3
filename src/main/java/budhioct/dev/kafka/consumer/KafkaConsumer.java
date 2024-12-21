@@ -1,5 +1,6 @@
 package budhioct.dev.kafka.consumer;
 
+import budhioct.dev.kafka.dto.Book;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,10 +13,15 @@ import static java.lang.String.format;
 @RequiredArgsConstructor
 public class KafkaConsumer {
 
-    @KafkaListener(topics = "orders", groupId = "liverpool")
+    //@KafkaListener(topics = "orders", groupId = "liverpool")
     public void receiveMessage(String message) {
         //log.info(format("Message sent to topic orders:: %s", message));
         log.info("Message from Kafka topic orders: {}", message);
+    }
+
+    @KafkaListener(topics = "orders", groupId = "liverpool")
+    public void receiveJsonMessage(Book book) {
+        // log.info("Message from Kafka topic orders: {}", book.toString());
     }
 
 }

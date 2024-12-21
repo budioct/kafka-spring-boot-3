@@ -1,5 +1,7 @@
 package budhioct.dev.kafka.rest;
 
+import budhioct.dev.kafka.dto.Book;
+import budhioct.dev.kafka.producer.KafkaJsonProducer;
 import budhioct.dev.kafka.producer.KafkaProducer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -17,6 +19,7 @@ import java.util.concurrent.ExecutionException;
 public class KafkaController {
 
     private final KafkaProducer kafkaProducer;
+    private final KafkaJsonProducer kafkaJsonProducer;
 
     @PostMapping(
             //produces = MediaType.APPLICATION_JSON_VALUE,
@@ -33,6 +36,12 @@ public class KafkaController {
          *     "message" : "asek"
          * }
          */
+    }
+
+    @PostMapping("/json")
+    public ResponseEntity<String> sendJsonMessage(@RequestBody Book book) throws ExecutionException, InterruptedException {
+        kafkaJsonProducer.sendMessage(book);
+        return ResponseEntity.ok("Message queued successfully as JSON");
     }
 
 }
